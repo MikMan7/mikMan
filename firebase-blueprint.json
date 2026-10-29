@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "Router": {
+      "title": "Router",
+      "description": "MikroTik router configuration and live telemetry managed by the administrator.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated administrator."
+        },
+        "name": {
+          "type": "string",
+          "description": "Friendly name of the MikroTik router."
+        },
+        "ip": {
+          "type": "string",
+          "description": "IP address or hostname of the router."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port number for RouterOS REST API."
+        },
+        "username": {
+          "type": "string",
+          "description": "RouterOS login username."
+        },
+        "useSsl": {
+          "type": "boolean",
+          "description": "Whether HTTPS is enabled."
+        },
+        "routerModel": {
+          "type": "string",
+          "description": "Hardware board model."
+        },
+        "routerOsVersion": {
+          "type": "string",
+          "description": "Firmware RouterOS version."
+        },
+        "cpuLoad": {
+          "type": "integer",
+          "description": "Current CPU usage percentage."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Submitted as server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp. Submitted as server timestamp."
+        }
+      },
+      "required": ["userId", "name", "ip", "port", "username", "createdAt"]
+    },
+    "NetworkUser": {
+      "title": "NetworkUser",
+      "description": "Monitored client or hotspot subscriber with bandwidth quota constraints.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated administrator."
+        },
+        "name": {
+          "type": "string",
+          "description": "Subscriber name or department label."
+        },
+        "ipAddress": {
+          "type": "string",
+          "description": "Assigned IP address."
+        },
+        "macAddress": {
+          "type": "string",
+          "description": "Device MAC address."
+        },
+        "hotspotUser": {
+          "type": "string",
+          "description": "MikroTik Hotspot username."
+        },
+        "quotaGb": {
+          "type": "number",
+          "description": "Monthly data allocation in Gigabytes."
+        },
+        "usedDownloadGb": {
+          "type": "number",
+          "description": "Total download consumed this month in Gigabytes."
+        },
+        "usedUploadGb": {
+          "type": "number",
+          "description": "Total upload consumed this month in Gigabytes."
+        },
+        "maxDownloadMbps": {
+          "type": "number",
+          "description": "Speed limit for download in Mbps."
+        },
+        "maxUploadMbps": {
+          "type": "number",
+          "description": "Speed limit for upload in Mbps."
+        },
+        "alertThresholdPercent": {
+          "type": "integer",
+          "description": "Threshold percentage to trigger quota warnings."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status (ACTIVE, WARNING, THROTTLED, EXCEEDED, SUSPENDED)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Submitted as server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp. Submitted as server timestamp."
+        }
+      },
+      "required": ["userId", "name", "ipAddress", "quotaGb", "status", "createdAt"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "Instant quota warning or critical threshold alert.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated administrator."
+        },
+        "userName": {
+          "type": "string",
+          "description": "Subscriber name associated with the alert."
+        },
+        "title": {
+          "type": "string",
+          "description": "Alert summary title."
+        },
+        "message": {
+          "type": "string",
+          "description": "Detailed explanation of the alert event."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level (INFO, WARNING, CRITICAL)."
+        },
+        "isResolved": {
+          "type": "boolean",
+          "description": "Whether the alert has been acted upon."
+        },
+        "actionTaken": {
+          "type": "string",
+          "description": "Action performed (e.g., reset, throttled, dismissed)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Submitted as server timestamp."
+        }
+      },
+      "required": ["userId", "title", "message", "severity", "isResolved", "createdAt"]
+    },
+    "UserUsage": {
+      "title": "UserUsage",
+      "description": "Granular session or daily internet usage log for a subscriber.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated administrator."
+        },
+        "subscriberId": {
+          "type": "string",
+          "description": "Identifier of the client subscriber."
+        },
+        "dateKey": {
+          "type": "string",
+          "description": "Date formatted as YYYY-MM-DD."
+        },
+        "downloadMb": {
+          "type": "number",
+          "description": "Data downloaded in Megabytes."
+        },
+        "uploadMb": {
+          "type": "number",
+          "description": "Data uploaded in Megabytes."
+        },
+        "totalMb": {
+          "type": "number",
+          "description": "Total data transferred in Megabytes."
+        },
+        "sessionDurationMinutes": {
+          "type": "integer",
+          "description": "Duration of active session in minutes."
+        },
+        "peakRateMbps": {
+          "type": "number",
+          "description": "Peak bandwidth speed recorded during the session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Submitted as server timestamp."
+        }
+      },
+      "required": ["userId", "dateKey", "downloadMb", "uploadMb", "totalMb", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/routers/{routerId}": {
+      "schema": {
+        "$ref": "#/entities/Router"
+      },
+      "description": "MikroTik routers configured by the administrator."
+    },
+    "/users/{userId}/network_users/{networkUserId}": {
+      "schema": {
+        "$ref": "#/entities/NetworkUser"
+      },
+      "description": "Network subscribers and their quotas monitored by the administrator."
+    },
+    "/users/{userId}/alerts/{alertId}": {
+      "schema": {
+        "$ref": "#/entities/Alert"
+      },
+      "description": "Instant quota alerts received by the administrator."
+    },
+    "/users/{userId}/usage_logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/UserUsage"
+      },
+      "description": "Daily internet consumption logs recorded for subscribers."
+    }
+  }
+}

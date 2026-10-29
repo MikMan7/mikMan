@@ -1,0 +1,185 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (default deny all unmatched paths)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidRouter(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.ip is string && data.ip.size() > 0 && data.ip.size() <= 64 &&
+             data.port is int && data.port >= 1 && data.port <= 65535 &&
+             data.username is string && data.username.size() > 0 && data.username.size() <= 64 &&
+             (!('useSsl' in data) || data.useSsl is bool) &&
+             (!('routerModel' in data) || (data.routerModel is string && data.routerModel.size() <= 100)) &&
+             (!('routerOsVersion' in data) || (data.routerOsVersion is string && data.routerOsVersion.size() <= 64)) &&
+             (!('cpuLoad' in data) || (data.cpuLoad is int && data.cpuLoad >= 0 && data.cpuLoad <= 100));
+    }
+
+    function isValidNetworkUser(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.ipAddress is string && data.ipAddress.size() > 0 && data.ipAddress.size() <= 64 &&
+             (!('macAddress' in data) || (data.macAddress is string && data.macAddress.size() <= 32)) &&
+             (!('hotspotUser' in data) || (data.hotspotUser is string && data.hotspotUser.size() <= 64)) &&
+             (data.quotaGb is number && data.quotaGb >= 0.0) &&
+             (!('usedDownloadGb' in data) || (data.usedDownloadGb is number && data.usedDownloadGb >= 0.0)) &&
+             (!('usedUploadGb' in data) || (data.usedUploadGb is number && data.usedUploadGb >= 0.0)) &&
+             (!('maxDownloadMbps' in data) || (data.maxDownloadMbps is number && data.maxDownloadMbps >= 0.0)) &&
+             (!('maxUploadMbps' in data) || (data.maxUploadMbps is number && data.maxUploadMbps >= 0.0)) &&
+             (!('alertThresholdPercent' in data) || (data.alertThresholdPercent is int && data.alertThresholdPercent >= 1 && data.alertThresholdPercent <= 100)) &&
+             (data.status is string && (data.status == 'ACTIVE' || data.status == 'WARNING' || data.status == 'THROTTLED' || data.status == 'EXCEEDED' || data.status == 'SUSPENDED'));
+    }
+
+    function isValidAlert(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 500 &&
+             (data.severity is string && (data.severity == 'INFO' || data.severity == 'WARNING' || data.severity == 'CRITICAL')) &&
+             (data.isResolved is bool) &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() <= 100)) &&
+             (!('actionTaken' in data) || (data.actionTaken is string && data.actionTaken.size() <= 200));
+    }
+
+    function isValidUserUsage(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.dateKey is string && data.dateKey.size() == 10 &&
+             (data.downloadMb is number && data.downloadMb >= 0.0) &&
+             (data.uploadMb is number && data.uploadMb >= 0.0) &&
+             (data.totalMb is number && data.totalMb >= 0.0) &&
+             (!('subscriberId' in data) || (data.subscriberId is string && data.subscriberId.size() <= 128)) &&
+             (!('sessionDurationMinutes' in data) || (data.sessionDurationMinutes is int && data.sessionDurationMinutes >= 0)) &&
+             (!('peakRateMbps' in data) || (data.peakRateMbps is number && data.peakRateMbps >= 0.0));
+    }
+
+    // --- User Scoped Collections ---
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+
+      // 1. Routers Collection
+      match /routers/{routerId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(routerId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'name', 'ip', 'port', 'username', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidRouter(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(routerId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (!('updatedAt' in incoming()) || (incoming().updatedAt is timestamp && incoming().updatedAt <= request.time)) &&
+                         isValidRouter(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'ip', 'port', 'username', 'useSsl', 'routerModel', 'routerOsVersion', 'cpuLoad', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(routerId);
+      }
+
+      // 2. Network Users Collection
+      match /network_users/{networkUserId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(networkUserId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'name', 'ipAddress', 'quotaGb', 'status', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidNetworkUser(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(networkUserId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (!('updatedAt' in incoming()) || (incoming().updatedAt is timestamp && incoming().updatedAt <= request.time)) &&
+                         isValidNetworkUser(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'ipAddress', 'macAddress', 'hotspotUser', 'quotaGb',
+                           'usedDownloadGb', 'usedUploadGb', 'maxDownloadMbps', 'maxUploadMbps',
+                           'alertThresholdPercent', 'status', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(networkUserId);
+      }
+
+      // 3. Alerts Collection
+      match /alerts/{alertId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(alertId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'title', 'message', 'severity', 'isResolved', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidAlert(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(alertId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidAlert(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['isResolved', 'actionTaken']);
+
+        allow delete: if isOwner(userId) && isValidId(alertId);
+      }
+
+      // 4. Usage Logs Collection
+      match /usage_logs/{logId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'dateKey', 'downloadMb', 'uploadMb', 'totalMb', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidUserUsage(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidUserUsage(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'downloadMb', 'uploadMb', 'totalMb', 'sessionDurationMinutes', 'peakRateMbps'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+    }
+  }
+}

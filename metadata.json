@@ -1,0 +1,8 @@
+{
+  "name": "MikroTrack",
+  "description": "إدارة شبكات ميكروتك، ومراقبة استهلاك البيانات للمستخدمين مع تنبيهات فورية وتصدير تقارير شهرية مفصلة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
